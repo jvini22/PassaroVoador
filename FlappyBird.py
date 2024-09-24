@@ -16,11 +16,11 @@ IMAGENS_PASSARO = [
 
 pygame.font.init()
 FONTE_PONTOS = pygame.font.SysFont('arial', 50)
+FONTE_GAME_OVER = pygame.font.SysFont('arial', 80)
 
 
 class Passaro:
     IMGS = IMAGENS_PASSARO
-    # animações da rotação
     ROTACAO_MAXIMA = 25
     VELOCIDADE_ROTACAO = 20
     TEMPO_ANIMACAO = 5
@@ -41,11 +41,9 @@ class Passaro:
         self.altura = self.y
 
     def mover(self):
-        # calcular o deslocamento
         self.tempo += 1
-        deslocamento = 1.5 * (self.tempo**2) + self.velocidade * self.tempo
+        deslocamento = 1.5 * (self.tempo ** 2) + self.velocidade * self.tempo
 
-        # restringir o deslocamento
         if deslocamento > 16:
             deslocamento = 16
         elif deslocamento < 0:
@@ -53,7 +51,6 @@ class Passaro:
 
         self.y += deslocamento
 
-        # o angulo do passaro
         if deslocamento < 0 or self.y < (self.altura + 50):
             if self.angulo < self.ROTACAO_MAXIMA:
                 self.angulo = self.ROTACAO_MAXIMA
@@ -62,7 +59,6 @@ class Passaro:
                 self.angulo -= self.VELOCIDADE_ROTACAO
 
     def desenhar(self, tela):
-        # definir qual imagem do passaro vai usar
         self.contagem_imagem += 1
 
         if self.contagem_imagem < self.TEMPO_ANIMACAO:
@@ -77,13 +73,10 @@ class Passaro:
             self.imagem = self.IMGS[0]
             self.contagem_imagem = 0
 
-
-        # se o passaro tiver caindo eu não vou bater asa
         if self.angulo <= -80:
             self.imagem = self.IMGS[1]
             self.contagem_imagem = self.TEMPO_ANIMACAO * 2
 
-        # desenhar a imagem
         imagem_rotacionada = pygame.transform.rotate(self.imagem, self.angulo)
         pos_centro_imagem = self.imagem.get_rect(topleft=(self.x, self.y)).center
         retangulo = imagem_rotacionada.get_rect(center=pos_centro_imagem)
@@ -132,8 +125,7 @@ class Cano:
 
         if base_ponto or topo_ponto:
             return True
-        else:
-            return False
+        return False
 
 
 class Chao:
@@ -160,7 +152,7 @@ class Chao:
         tela.blit(self.IMAGEM, (self.x2, self.y))
 
 
-def desenhar_tela(tela, passaros, canos, chao, pontos):
+def desenhar_tela(tela, passaros, canos, chao, pontos, high_score):
     tela.blit(IMAGEM_BACKGROUND, (0, 0))
     for passaro in passaros:
         passaro.desenhar(tela)
@@ -168,9 +160,21 @@ def desenhar_tela(tela, passaros, canos, chao, pontos):
         cano.desenhar(tela)
 
     texto = FONTE_PONTOS.render(f"Pontuação: {pontos}", 1, (255, 255, 255))
+    high_score_text = FONTE_PONTOS.render(f"High Score: {high_score}", 1, (255, 255, 0))
     tela.blit(texto, (TELA_LARGURA - 10 - texto.get_width(), 10))
+    tela.blit(high_score_text, (10, 10))
+
     chao.desenhar(tela)
     pygame.display.update()
+
+
+def tela_game_over(tela, pontos):
+    texto_game_over = FONTE_GAME_OVER.render("Game Over", 1, (255, 0, 0))
+    texto_pontos = FONTE_PONTOS.render(f"Pontuação: {pontos}", 1, (255, 255, 255))
+    tela.blit(texto_game_over, (TELA_LARGURA // 2 - texto_game_over.get_width() // 2, TELA_ALTURA // 2 - texto_game_over.get_height() // 2))
+    tela.blit(texto_pontos, (TELA_LARGURA // 2 - texto_pontos.get_width() // 2, TELA_ALTURA // 2 + texto_game_over.get_height()))
+    pygame.display.update()
+    pygame.time.delay(2000)
 
 
 def main():
@@ -181,50 +185,69 @@ def main():
     pontos = 0
     relogio = pygame.time.Clock()
 
+    # Carregar High Score
+    try:
+        with open("highscore.txt", "r") as file:
+            high_score = int(file.read())
+    except:
+        high_score = 0
+
     rodando = True
     while rodando:
         relogio.tick(30)
 
-        # interação com o usuário
+        # Fechar o jogo
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 rodando = False
                 pygame.quit()
                 quit()
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_SPACE:
-                    for passaro in passaros:
-                        passaro.pular()
+            if evento.type == pygame.KEYDOWN or evento.type == pygame.MOUSEBUTTONDOWN:
+                for passaro in passaros:
+                    passaro.pular()
 
-        # mover as coisas
         for passaro in passaros:
             passaro.mover()
-        chao.mover()
 
         adicionar_cano = False
         remover_canos = []
         for cano in canos:
             for i, passaro in enumerate(passaros):
                 if cano.colidir(passaro):
-                    passaros.pop(i)
-                if not cano.passou and passaro.x > cano.x:
+                    tela_game_over(tela, pontos)
+                    if pontos > high_score:
+                        high_score = pontos
+                        with open("highscore.txt", "w") as file:
+                            file.write(str(high_score))
+                    main()
+
+                if not cano.passou and cano.x < passaro.x:
                     cano.passou = True
                     adicionar_cano = True
+
             cano.mover()
+
             if cano.x + cano.CANO_TOPO.get_width() < 0:
                 remover_canos.append(cano)
 
         if adicionar_cano:
             pontos += 1
             canos.append(Cano(600))
+
         for cano in remover_canos:
             canos.remove(cano)
 
         for i, passaro in enumerate(passaros):
-            if (passaro.y + passaro.imagem.get_height()) > chao.y or passaro.y < 0:
-                passaros.pop(i)
+            if (passaro.y + passaro.imagem.get_height()) > chao.y:
+                tela_game_over(tela, pontos)
+                if pontos > high_score:
+                    high_score = pontos
+                    with open("highscore.txt", "w") as file:
+                        file.write(str(high_score))
+                main()
 
-        desenhar_tela(tela, passaros, canos, chao, pontos)
+        chao.mover()
+        desenhar_tela(tela, passaros, canos, chao, pontos, high_score)
 
 
 if __name__ == '__main__':

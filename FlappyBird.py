@@ -67,13 +67,13 @@ class Passaro:
 
         if self.contagem_imagem < self.TEMPO_ANIMACAO:
             self.imagem = self.IMGS[0]
-        elif self.contagem_imagem < self.TEMPO_ANIMACAO*2:
+        elif self.contagem_imagem < self.TEMPO_ANIMACAO * 2:
             self.imagem = self.IMGS[1]
-        elif self.contagem_imagem < self.TEMPO_ANIMACAO*3:
+        elif self.contagem_imagem < self.TEMPO_ANIMACAO * 3:
             self.imagem = self.IMGS[2]
-        elif self.contagem_imagem < self.TEMPO_ANIMACAO*4:
+        elif self.contagem_imagem < self.TEMPO_ANIMACAO * 4:
             self.imagem = self.IMGS[1]
-        elif self.contagem_imagem >= self.TEMPO_ANIMACAO*4 + 1:
+        elif self.contagem_imagem >= self.TEMPO_ANIMACAO * 4 + 1:
             self.imagem = self.IMGS[0]
             self.contagem_imagem = 0
 
@@ -81,7 +81,7 @@ class Passaro:
         # se o passaro tiver caindo eu não vou bater asa
         if self.angulo <= -80:
             self.imagem = self.IMGS[1]
-            self.contagem_imagem = self.TEMPO_ANIMACAO*2
+            self.contagem_imagem = self.TEMPO_ANIMACAO * 2
 
         # desenhar a imagem
         imagem_rotacionada = pygame.transform.rotate(self.imagem, self.angulo)

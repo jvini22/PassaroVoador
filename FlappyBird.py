@@ -15,9 +15,10 @@ IMAGENS_PASSARO = [
 ]
 
 pygame.font.init()
+pygame.mixer.init()  # Inicializar o mixer do Pygame
+
 FONTE_PONTOS = pygame.font.SysFont('arial', 50)
 FONTE_GAME_OVER = pygame.font.SysFont('arial', 80)
-
 
 class Passaro:
     IMGS = IMAGENS_PASSARO
@@ -159,8 +160,8 @@ def desenhar_tela(tela, passaros, canos, chao, pontos, high_score):
     for cano in canos:
         cano.desenhar(tela)
 
-    texto = FONTE_PONTOS.render(f"Pontuação: {pontos}", 1, (255, 255, 255))
-    high_score_text = FONTE_PONTOS.render(f"High Score: {high_score}", 1, (255, 255, 0))
+    texto = FONTE_PONTOS.render(f"Pontuação: {pontos}", 1, (200, 200, 200))
+    high_score_text = FONTE_PONTOS.render(f"High Score: {high_score}", 1, (200, 200, 0))
     tela.blit(texto, (TELA_LARGURA - 10 - texto.get_width(), 10))
     tela.blit(high_score_text, (10, 10))
 
@@ -177,7 +178,25 @@ def tela_game_over(tela, pontos):
     pygame.time.delay(2000)
 
 
+def tela_inicial():
+    tela = pygame.display.set_mode((TELA_LARGURA, TELA_ALTURA))
+    while True:
+        tela.blit(IMAGEM_BACKGROUND, (0, 0))
+        fonte = pygame.font.SysFont('arial', 50)
+        texto = fonte.render('Pressione qualquer tecla para começar', True, (255, 255, 255))
+        tela.blit(texto, (TELA_LARGURA//2 - texto.get_width()//2, TELA_ALTURA//2 - texto.get_height()//2))
+        pygame.display.update()
+        
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            if evento.type == pygame.KEYDOWN:
+                return
+
+
 def main():
+    tela_inicial()
     passaros = [Passaro(230, 350)]
     chao = Chao(730)
     canos = [Cano(700)]

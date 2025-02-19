@@ -2,9 +2,11 @@ import pygame
 import os
 import random
 
+# Configurações da tela
 TELA_LARGURA = 500
 TELA_ALTURA = 800
 
+# Carregar imagens
 IMAGEM_CANO = pygame.transform.scale2x(pygame.image.load(os.path.join('imgs', 'pipe.png')))
 IMAGEM_CHAO = pygame.transform.scale2x(pygame.image.load(os.path.join('imgs', 'base.png')))
 IMAGEM_BACKGROUND = pygame.transform.scale2x(pygame.image.load(os.path.join('imgs', 'bg.png')))
@@ -13,13 +15,14 @@ IMAGENS_PASSARO = [
     pygame.transform.scale2x(pygame.image.load(os.path.join('imgs', 'bird2.png'))),
     pygame.transform.scale2x(pygame.image.load(os.path.join('imgs', 'bird3.png'))),
 ]
+IMAGEM_POWERUP = pygame.transform.scale2x(pygame.image.load(os.path.join('imgs', 'powerup.png')))
 
+# Inicializar fontes
 pygame.font.init()
-pygame.mixer.init()  # Inicializar o mixer do Pygame
-
 FONTE_PONTOS = pygame.font.SysFont('arial', 50)
 FONTE_GAME_OVER = pygame.font.SysFont('arial', 80)
 
+# Classe do Pássaro
 class Passaro:
     IMGS = IMAGENS_PASSARO
     ROTACAO_MAXIMA = 25
@@ -87,6 +90,7 @@ class Passaro:
         return pygame.mask.from_surface(self.imagem)
 
 
+# Classe do Cano
 class Cano:
     DISTANCIA = 200
     VELOCIDADE = 5
@@ -129,6 +133,42 @@ class Cano:
         return False
 
 
+# Classe do Power-up
+class PowerUp:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.imagem = IMAGEM_POWERUP
+        self.largura = self.imagem.get_width()
+        self.altura = self.imagem.get_height()
+        self.ativo = False
+        self.tempo_restante = 0
+
+    def mover(self):
+        self.x -= Cano.VELOCIDADE
+
+    def desenhar(self, tela):
+        tela.blit(self.imagem, (self.x, self.y))
+
+    def colidir(self, passaro):
+        passaro_mask = passaro.get_mask()
+        powerup_mask = pygame.mask.from_surface(self.imagem)
+        distancia = (self.x - passaro.x, self.y - round(passaro.y))
+        ponto = passaro_mask.overlap(powerup_mask, distancia)
+        if ponto:
+            self.ativo = True
+            self.tempo_restante = 300  # 10 segundos (30 FPS * 10)
+            return True
+        return False
+
+    def atualizar(self):
+        if self.ativo:
+            self.tempo_restante -= 1
+            if self.tempo_restante <= 0:
+                self.ativo = False
+
+
+# Classe do Chão
 class Chao:
     VELOCIDADE = 5
     LARGURA = IMAGEM_CHAO.get_width()
@@ -153,12 +193,16 @@ class Chao:
         tela.blit(self.IMAGEM, (self.x2, self.y))
 
 
-def desenhar_tela(tela, passaros, canos, chao, pontos, high_score):
+# Função para desenhar a tela
+def desenhar_tela(tela, passaros, canos, chao, pontos, high_score, powerup):
     tela.blit(IMAGEM_BACKGROUND, (0, 0))
     for passaro in passaros:
         passaro.desenhar(tela)
     for cano in canos:
         cano.desenhar(tela)
+
+    if powerup:
+        powerup.desenhar(tela)
 
     texto = FONTE_PONTOS.render(f"Pontuação: {pontos}", 1, (200, 200, 200))
     high_score_text = FONTE_PONTOS.render(f"High Score: {high_score}", 1, (200, 200, 0))
@@ -169,6 +213,7 @@ def desenhar_tela(tela, passaros, canos, chao, pontos, high_score):
     pygame.display.update()
 
 
+# Função para a tela de Game Over
 def tela_game_over(tela, pontos):
     texto_game_over = FONTE_GAME_OVER.render("Game Over", 1, (255, 0, 0))
     texto_pontos = FONTE_PONTOS.render(f"Pontuação: {pontos}", 1, (255, 255, 255))
@@ -178,6 +223,7 @@ def tela_game_over(tela, pontos):
     pygame.time.delay(2000)
 
 
+# Função para a tela inicial
 def tela_inicial():
     tela = pygame.display.set_mode((TELA_LARGURA, TELA_ALTURA))
     while True:
@@ -186,7 +232,7 @@ def tela_inicial():
         texto = fonte.render('Pressione qualquer tecla para começar', True, (255, 255, 255))
         tela.blit(texto, (TELA_LARGURA//2 - texto.get_width()//2, TELA_ALTURA//2 - texto.get_height()//2))
         pygame.display.update()
-        
+
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 pygame.quit()
@@ -195,6 +241,7 @@ def tela_inicial():
                 return
 
 
+# Função principal
 def main():
     tela_inicial()
     passaros = [Passaro(230, 350)]
@@ -211,6 +258,10 @@ def main():
     except:
         high_score = 0
 
+    # Power-up
+    powerup = None
+    powerup_spawn_timer = 0
+
     rodando = True
     while rodando:
         relogio.tick(30)
@@ -225,14 +276,16 @@ def main():
                 for passaro in passaros:
                     passaro.pular()
 
+        # Movimentação
         for passaro in passaros:
             passaro.mover()
 
+        # Adicionar canos e power-ups
         adicionar_cano = False
         remover_canos = []
         for cano in canos:
             for i, passaro in enumerate(passaros):
-                if cano.colidir(passaro):
+                if cano.colidir(passaro) and not (powerup and powerup.ativo):
                     tela_game_over(tela, pontos)
                     if pontos > high_score:
                         high_score = pontos
@@ -253,9 +306,31 @@ def main():
             pontos += 1
             canos.append(Cano(600))
 
+            # Aumentar dificuldade
+            if pontos % 5 == 0:
+                Cano.VELOCIDADE += 0.5
+                Cano.DISTANCIA = max(150, Cano.DISTANCIA - 10)
+
         for cano in remover_canos:
             canos.remove(cano)
 
+        # Power-up
+        if powerup:
+            powerup.mover()
+            if powerup.colidir(passaros[0]):
+                powerup = None
+            elif powerup.x + powerup.largura < 0:
+                powerup = None
+        else:
+            powerup_spawn_timer += 1
+            if powerup_spawn_timer >= 300:  # Spawn a cada 10 segundos
+                powerup = PowerUp(600, random.randint(200, 600))
+                powerup_spawn_timer = 0
+
+        if powerup:
+            powerup.atualizar()
+
+        # Verificar colisão com o chão
         for i, passaro in enumerate(passaros):
             if (passaro.y + passaro.imagem.get_height()) > chao.y:
                 tela_game_over(tela, pontos)
@@ -266,7 +341,7 @@ def main():
                 main()
 
         chao.mover()
-        desenhar_tela(tela, passaros, canos, chao, pontos, high_score)
+        desenhar_tela(tela, passaros, canos, chao, pontos, high_score, powerup)
 
 
 if __name__ == '__main__':
